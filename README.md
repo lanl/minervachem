@@ -8,33 +8,34 @@ keep track of what version you are using if you need to maintain consistency.
 ## Installation
 
 There are currently two ways to get `minervachem` up and running: 
-1. install from our git repo via pip
-2. build conda env from our git repo
+1. Build from conda `env.yml` and this git repo
+2. NOT RECOMMENDED install this repo and dependencies via `pip`
 
-Currently, conda is a more robust way to install since there are some complicated dependency resolutions that pip
-will ignore. We are in the process of finding which packages need to be pinned to resolve this without overpinning. 
+### Conda installation
 
+Steps: 
+1. Clone this repo and `cd` into it
+2. 
+    a. If creating a new conda environment: `conda env create -n minervachem --file env.yml`
+    b. If installing into an existing conda environment: `conda env update -n <YOUR_ENV_NAME> -f env.yml`
+3. `pip install -e .`
 
+### Pip Installation 
+
+**This is not recommended**
 Install requirements with pip:
-1. clone this repo and navigate to its root director
-2. install rdkit and jupyter lab with `conda install -c conda-forge rdkit`  (this must be done with conda or mamba)
-3. install the package with `pip install .`
-
-To install the minervachem conda environment (we recommend using [mamba](https://mamba.readthedocs.io/en/latest/installation.html)
-instead of conda as it is much faster), 
-1. Build environment: you can start a fresh env with `conda env create -n minervachem --file env.yml`. You can use 
-`conda install` to instead install these dependencies into an existing environment
-2. `pip install .`
+1. Clone this repo and `cd` into it.
+2. install the package with `pip install -e .`
+3. If running demos, install your preferred variant of jupyter
 
 ### For Developers
 You'll also want to run `pip install -r requirements_developer.txt`
 
-
-## Getting started
+# Getting started with `minervachem`
 
 We recommend looking through and running the notebooks in the `demos/` directory for a detailed introduction to `minervachem`'s funcitonality.
 
-A few highlights of key features are below.
+## Highlights
 
 ### Constructing graphlet fingerprints
 
