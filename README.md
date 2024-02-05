@@ -22,8 +22,9 @@ Steps:
 
 ### Pip Installation 
 
-**This is not recommended**
-Install requirements with pip:
+**This is not recommended**  
+
+Steps: 
 1. Clone this repo and `cd` into it.
 2. install the package with `pip install -e .`
 3. If running demos, install your preferred variant of jupyter
