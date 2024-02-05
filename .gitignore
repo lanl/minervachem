@@ -1,0 +1,8 @@
+**/__pycache__/*
+build/*
+**/data/*
+**/.DS_Store
+**/.hypothesis/*
+**/*.egg-info
+**/*.idea/*
+**/.ipynb_checkpoints/*

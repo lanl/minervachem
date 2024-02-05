@@ -1,0 +1,23 @@
+numpy
+scipy
+pandas
+scikit-learn
+tqdm
+sigfig
+matplotlib
+pillow
+imageio
+lightgbm
+flaml
+networkx
+cairosvg
+jupyterlab
+ipywidgets
+seaborn
+joblib>=1.3.0
+svglib
+
+# from padre
+sparse>=0.13.0
+dask
+distributed
