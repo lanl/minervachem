@@ -38,10 +38,11 @@ We recommend looking through and running the notebooks in the `demos/` directory
 
 ## Citing Minervachem
 
-Besides this code repository, please see and cite our preprint:
-   "Linear Graphlet Models for Accurate and Interpretable Cheminformatics"
+Besides this code repository, please see and cite [this preprint](https://doi.org/10.26434/chemrxiv-2024-r81c8):
+
+    Linear Graphlet Models for Accurate and Interpretable Cheminformatics
     Michael Tynes, Michael G Taylor, Jan Janssen, Daniel J. Burrill, Danny Perez, Ping Yang, Nicholas Lubbers
-    2024
+    ChemRxiv preprint, 2024
     https://doi.org/10.26434/chemrxiv-2024-r81c8
 
 ## Highlights
