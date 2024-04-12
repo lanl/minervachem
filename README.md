@@ -1,4 +1,4 @@
-# MinervaChem - a python library for cheminformatics and machine learning.
+# MinervaChem - a python library for cheminformatics and machine learning
 
 Minervachem implements Graphlet Fingerprints and other utilities cheminformatics and chemical machine learning.
 
@@ -159,6 +159,19 @@ draw_projected_coefs(dags,
 ![Hierarhcical model interpretation](demos/hmodel_interp.png)
 
 
+## Citation 
+If you use minervachem in your work, please cite [our paper](https://doi.org/10.26434/chemrxiv-2024-r81c8)
+
+```latex
+@article{tynes2024linear,
+  title={Linear Graphlet Models for Accurate and Interpretable Cheminformatics},
+  author={Tynes, Michael and Taylor, Michael G and Janssen, Jan and Burrill, Daniel J and Perez, Danny and Yang, Ping and Lubbers, Nicholas},
+  journal={ChemRxiv preprint},
+  doi={10.26434/chemrxiv-2024-r81c8},
+  url={dx.doi.org/10.26434/chemrxiv-2024-r81c8},
+  year={2024}
+}
+```
 
 ## Copyright and licensing
 
