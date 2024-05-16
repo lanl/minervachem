@@ -315,17 +315,15 @@ class FingerprintFeaturizer(BaseEstimator, TransformerMixin):
         :param used_bits: the unique bits present in fps
         """
         
-        D = {}
+        M = sp.sparse.dok_matrix((len(fps), len(used_bits)), dtype=int)
         for i, fp in tqdm(enumerate(fps), 
                           'Converting FPs to sparse', 
                           total=len(fps)): 
             for bit, count in fp.items(): 
                 if bit in used_bits.keys():
                     j = used_bits[bit]
-                    D[(i, j)] = count
+                    M[(i, j)] = count
                     
-        M = sp.sparse.dok_matrix((len(fps), len(used_bits)), dtype=int)
-        dict.update(M, D)
         return M
 
 class SparseFeatureEliminator(BaseEstimator, TransformerMixin): 
