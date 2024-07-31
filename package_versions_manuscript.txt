@@ -1,0 +1,27 @@
+# requirements file documenting the package versions used for experiments
+# in the manuscript at : https://doi.org/10.26434/chemrxiv-2024-r81c8
+# running under python 3.8.12
+# built with pip 21.1.1
+
+numpy=1.20.3
+scipy=1.8.0
+pandas=1.2.4
+sklearn=1.1.1
+rdkit=2021.09.3
+matplotlib=3.7.3
+PIL=8.4.0
+imageio=2.15.0
+lightgbm=3.3.2
+flaml=2.1.1
+dask=2021.09.1
+distributed=2021.09.1
+jupyterlab=3.0.14
+ipywidgets=7.7.0
+tqdm=4.55.1
+seaborn=0.12.2
+joblib=1.0.1
+networkx=2.6.2
+cairosvg=2.5.2
+sparse=0.13.0
+svglib=1.1.0
+sigfig=1.1.8
