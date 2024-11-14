@@ -19,6 +19,7 @@ from tqdm.auto import tqdm
 
 from .utils import misc
 from minervachem.utils.misc import uniquify_lol
+from minervachem.utils.sparse import select_columns_from_matrix
 from minervachem.sparse_eliminator import map_useless_features_sparse
 
 
@@ -241,11 +242,28 @@ class FingerprintFeaturizer(BaseEstimator, TransformerMixin):
         self._in_fit_transform = False
         self._cache = {}
         return out
-   
+
+# YP added 06/21/2024
+    def extract_smaller_fp(self, fps, new_max_subgraph_size=3, return_bit_ids_updated=False):
+        if self.fingerprinter.size < new_max_subgraph_size:
+            print("Selected max substructure size is bigger than in available fingerprinter.\n "
+                  "Please, invoke new fingerprinting procedure.")
+            return
+
+        inds_of_smaller_size = [list(self.bit_indices_.values())[i] for i in
+                                np.where(self.bit_sizes_ <= new_max_subgraph_size)[0]]
+        new_fps = select_columns_from_matrix(fps, inds_of_smaller_size)
+        if return_bit_ids_updated:
+            updated_bits_ids = [self.bit_ids_[i] for i in inds_of_smaller_size]
+            return new_fps, updated_bits_ids
+        else:
+            return new_fps
+
     def _print(self, msg): 
         if self.verbose: 
             print(msg)
-            
+
+
     @staticmethod
     def _get_bit_indices_and_sizes(bit_ids):
         """Given a list of bit ids
@@ -283,7 +301,9 @@ class FingerprintFeaturizer(BaseEstimator, TransformerMixin):
                      prefer='processes',
                      batch_size=batch_size,
                      return_as='generator',
+                     # backend='loky',
                     )
+        print(f"Number of cores used: {p.n_jobs}")
         f = delayed(self._get_fp) 
         
         fps = tqdm(p(f(mol,
@@ -295,15 +315,15 @@ class FingerprintFeaturizer(BaseEstimator, TransformerMixin):
          bits,
         ) = list(zip(*fps))
         return fps, bis, bits #, metal_bits, metal_sizes        
-        
+
     @staticmethod
-    def _get_fp(mol, 
-                fingerprinter, 
+    def _get_fp(mol,
+                fingerprinter,
                ):
-        """Calls the fingerprinter on an individual molecule, returning 
-        
+        """Calls the fingerprinter on an individual molecule, returning
+
         For an rdkit.Molecule, return a fingerprint and a list of tuples of form (bit, r)
-        """        
+        """
         fp, bi = fingerprinter(mol)
         bits = list(fp.keys())
         return fp, bi, bits
