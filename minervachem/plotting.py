@@ -189,19 +189,6 @@ def parity_plot_train_test(X, y, model,
             plt.suptitle(title)
     return axes
 
-def parity_plot_train_test_per_atom(X, y, atom_nums, model,
-                                    title=None,
-                                    figsize=(8, 3),
-                                    dpi=None,
-                                    **kwargs):
-    fig, axes = plt.subplots(1, 2, figsize=figsize, dpi=dpi)
-    for i, (subset, x, y, num) in enumerate(zip(['train', 'test'], X, y, atom_nums)):
-        pred = model.predict(x)
-        parity_plot(y/num, pred/num, ax=axes[i], title=f'{subset.title()} (n={y.shape[0]:,d})', **kwargs)
-        if title:
-            plt.suptitle(title)
-    return axes
-
 def draw_ss(mol, atom_ix, draw_atom_ix=False, ix_note=True):
     """Draw a substructure of a molecule given an iterable of atom indices"""
     #atoms = set([mol.GetAtomWithIdx(i) for i in atom_ix])
