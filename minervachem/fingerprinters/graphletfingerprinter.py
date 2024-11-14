@@ -1,30 +1,45 @@
 from functools import lru_cache
 import re
+import hashlib
 
 import networkx as nx
 from collections import Counter, defaultdict
-from rdkit.Chem import rdmolops
+from rdkit.Chem import rdmolops, RWMol
 from rdkit.Chem.rdchem import Mol
 import rdkit
 
-
 class GraphletFingerprinter():     
-    def __init__(self, max_len=3, useHs=False):
+    def __init__(self, max_len=3, useHs=False, elements=(), filter_in=True, terminal_pos=False):
         """A class to produce graphlet fingerprints
 
         The size component of the bit ID corresponds to the number of atoms in the graphlet. 
         
         :param max_len: int, the largest number of atoms to consider for induced subgraphs
-        :param useHs: bool, whether to use explicit hydrogens 
+        :param useHs: bool, whether to use explicit hydrogens
+        :param elements: tuple of str, the elements to filter for
+        :param filter_in: bool, True if substructures with filtered elements should be kept,
+        False if substructures with filtered elements should be removed
+        :param terminal_pos: bool, True if substructures with terminal atoms should be kept,
         """
         
         self.size = self.max_len = max_len
         self.useHs = useHs
+        self.elements = elements
+        self.filter_in = filter_in
+        self.terminal_pos = terminal_pos
+        self.verbose = False
+
+        if len(self.elements)==0:
+            print('No elements to filter. Complete fingerprints are returned.') #should only appear once at the initialization
         
     def __call__(self, mol): 
         fp, bi = ComputeGraphletFingerprint(mol, 
-                                           self.max_len, 
-                                           self.useHs)
+                                            self.max_len,
+                                            self.useHs,
+                                            self.elements,
+                                            self.filter_in,
+                                            self.terminal_pos,
+                                            self.verbose)
         return fp, bi
     
 
@@ -211,26 +226,36 @@ def generate_subgraphs(G,maxlen,hash_helper=None,whitelist=None):
         res = None
     return all_subsets,res
 
+def flatten_list(xss):
+    return [x for xs in xss for x in xs]
+
 class HashHelper():
-    def __init__(self,graph,maxlen):
+    def __init__(self, graph, maxlen):
         self.graph=graph
         self.maxlen=maxlen
-        
+
+    @staticmethod
+    def custom_hash(obj):
+        s = str(obj).encode()
+        hash_int = int(hashlib.sha1(s).hexdigest(), 16)
+        return hash_int
+
     @lru_cache(maxsize=None) # very important, this is memoized.
     def __call__(self,indices):
+
         if len(indices)==1:
             # Just hash atom key
             a=list(indices)[0]
             akey = self.graph.nodes[a]['atom_key']
-            h=hash(akey)
+            h = self.custom_hash(akey)
             return h
         if len(indices)==2:
             # Include bond key in hash
             a1,a2=indices
             h1, h2 = map(self,((a1,),(a2,)))
             btype = self.graph.edges[a1,a2]['bond_key']
-            h3 = hash(btype)
-            h = hash(tuple(sorted((h1,h2,h3))))
+            h3 = self.custom_hash(btype)
+            h = self.custom_hash(tuple(sorted((h1, h2, h3))))
             return h
         
         # hash abd count of all substructures of this structure that are at most one smaller than this one.
@@ -241,19 +266,41 @@ class HashHelper():
         sub_hashes = Counter(self(idxs) for idxs in sub_graph_set)
         # combine hashes from substructures to form new hash for this.
         this_hashkey = tuple(sorted(sub_hashes.items()))
-        h = hash(this_hashkey)
+        h = self.custom_hash(this_hashkey)
 
         return h
                                  
-def ComputeGraphletFingerprint(rdkit_mol, maxlen, explicit_h):
+# def ComputeGraphletFingerprint(rdkit_mol, maxlen, explicit_h):
+#     """RDKit style wrapper to generate_subgraphs but keyed by (size, bit)"""
+#     if isinstance(rdkit_mol, Mol):
+#         G = mol_to_nx(rdkit_mol, explicit_h=explicit_h)
+#     elif isinstance(rdkit_mol,str):
+#         if 'TRIPOS' in rdkit_mol:
+#             G = mol2_to_nx(rdkit_mol,explicit_h=explicit_h)
+#         else:
+#             raise ValueError('Unknown molecule type for featurizing')
+#     else:
+#         raise ValueError('Unknown molecule type for featurizing')
+#     subsets, counter = generate_subgraphs(G, maxlen)
+#     bit_info = defaultdict(lambda: [])
+#     for atoms, bit in subsets:
+#         subset = list(atoms)
+#         size = len(subset)
+#         bit_info[(size, bit+2**64)].append(subset)
+#     fp = {(k[0], k[1]+2**64): v for k, v in counter.items()}
+#     return fp, dict(bit_info)
+
+def ComputeGraphletFingerprint(rdkit_mol, maxlen, explicit_h, elements=(), filter_in=True, terminal_pos=False, verbose=False):
     """RDKit style wrapper to generate_subgraphs but keyed by (size, bit)"""
     if isinstance(rdkit_mol, Mol):
         G = mol_to_nx(rdkit_mol, explicit_h=explicit_h)
-    elif isinstance(rdkit_mol,str):
+    elif isinstance(rdkit_mol, str):
         if 'TRIPOS' in rdkit_mol:
-            G = mol2_to_nx(rdkit_mol,explicit_h=explicit_h)
+            G = mol2_to_nx(rdkit_mol, explicit_h=explicit_h)
         else:
             raise ValueError('Unknown molecule type for featurizing')
+    elif isinstance(rdkit_mol, nx.classes.graph.Graph):
+        G = rdkit_mol
     else:
         raise ValueError('Unknown molecule type for featurizing')
     subsets, counter = generate_subgraphs(G, maxlen)
@@ -261,6 +308,52 @@ def ComputeGraphletFingerprint(rdkit_mol, maxlen, explicit_h):
     for atoms, bit in subsets:
         subset = list(atoms)
         size = len(subset)
-        bit_info[(size, bit+2**64)].append(subset)
-    fp = {(k[0], k[1]+2**64): v for k, v in counter.items()}
-    return fp, dict(bit_info)
+        bit_info[(size, bit + 2 ** 64)].append(subset)
+    fp = {(k[0], k[1] + 2 ** 64): v for k, v in counter.items()}
+    bit_info = dict(bit_info)
+
+    if len(elements)==0:
+        return fp, bit_info
+    else:
+        el_inds = [atom.GetIdx() for atom in rdkit_mol.GetAtoms() if atom.GetSymbol() in elements]
+        if len(el_inds)==0:
+            if len(elements)!=0:
+                if verbose:
+                    print("Elements to filter for not found OR incorrect element symbols are entered. Empty FP is returned")
+                for k in bit_info.keys():
+                    bit_info[k] = []
+                    fp[k] = 0
+        else:
+            for k, v in bit_info.items():
+                remove_flag = True
+                if not filter_in:
+                    remove_flag = False
+                for bit_atom in flatten_list(v):
+                    if bit_atom in el_inds:
+                        remove_flag = not remove_flag
+                        break
+                if remove_flag:
+                    bit_info[k] = []
+                    fp[k] = 0
+        if terminal_pos:
+            assert filter_in, "The functionality currently works for filtering in only." # TODO make it work for filter out too
+            for k, v in bit_info.items():
+                if len(v)==0 or k[0]<=2:
+                    continue
+
+                rwmol_temp = RWMol(rdkit_mol)
+                for atom in reversed(list(rwmol_temp.GetAtoms())):
+                    if atom.GetIdx() not in v[0]:
+                        rwmol_temp.RemoveAtom(atom.GetIdx())
+
+                non_terminal = []
+                for element in elements:
+                    local_elements = [atom for atom in rwmol_temp.GetAtoms() if atom.GetSymbol()==element]
+                    local_nbrs = [len(atom.GetNeighbors()) for atom in local_elements] #this should support multi metal element core
+                    non_terminal.append(any(nbr_number > 1 for nbr_number in local_nbrs) if local_nbrs else True) # makes sure that if other element filtered for is not is the substructure it does not get flagged as terminal
+
+                if all(non_terminal):
+                    bit_info[k] = []
+                    fp[k] = 0
+
+        return fp, bit_info
