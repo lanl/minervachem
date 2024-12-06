@@ -78,7 +78,7 @@ def scatter_hist(x,
         fig, ax = plt.subplots(**kwargs)
     ax.set_xlabel(xlab, fontsize=fontsize)
     ax.set_ylabel(ylab, fontsize=fontsize)
-    h = ax.hist2d(x, y, bins=bins, norm=matplotlib.colors.LogNorm())
+    h = ax.hist2d(x, y, bins=bins, norm=matplotlib.colors.LogNorm(), cmap=matplotlib.colormaps['viridis'])
     plt.colorbar(h[3], ax=ax)
     if identity:
         if identity_kws is None: 
@@ -204,7 +204,7 @@ def draw_ss(mol, atom_ix, draw_atom_ix=False, ix_note=True):
     im = Chem.Draw.MolToImage(rwmol, options=dos)
     return im
 
-
+# YP edited. 06/24/24 - a flag for plotting only found substructures
 def plot_fingerprint(mol,
                      fingerprinter,
                      ncol=3,
@@ -212,7 +212,8 @@ def plot_fingerprint(mol,
                      decreasing=True,
                      show_count=True,
                      show_bit_ids=True,
-                     show_size=True):
+                     show_size=True,
+                     only_found=True):
     """Plot all of the substructures induced in mol by fingerprinter.
 
     Note that if the fingerprinter produces folded bits, this will only show the first one found.
@@ -230,6 +231,9 @@ def plot_fingerprint(mol,
     """
 
     fp, bi = fingerprinter(mol)
+    if only_found:
+        fp = {k: v for k, v in fp.items() if v != 0}
+        bi = {k: v for k, v in bi.items() if v != []}
     n_bits = len(bi.keys())
 
     if n_bits == 0:
@@ -247,7 +251,7 @@ def plot_fingerprint(mol,
         def draw_fn(mol, bit):
             return draw_ss(mol, bi[bit][0])
         size_name = 'n'
-        fingerprinter_name = 'YADL Fingerprint'
+        fingerprinter_name = 'Graphlet Fingerprint'
     elif isinstance(fingerprinter, MorganFingerprinter):
         def draw_fn(mol, bit):
             return Chem.Draw.DrawMorganBit(mol, bit[1], _bi)

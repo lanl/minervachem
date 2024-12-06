@@ -64,3 +64,41 @@ def drop_zero_columns_coo(S, copy=True):
 
 def to_array(S):
     return np.asarray(S.todense())
+
+def select_rows_from_matrix(csr_matrix, row_indices):
+    """
+    The function is used to select a subset of rows of `csr_matrix` and return
+    the selected subset as a 'csr_matrix' of the same width, but different length.
+    :param csr_matrix: the big matrix, from which we will select a subset of rows.
+    :param row_indices: indices identifying rows to be selected.
+    """
+    if type(row_indices) != list:
+        row_indices = list(row_indices)
+    return csr_matrix[row_indices, :]
+
+def combine_sparse_matrices(csr_matrix1, csr_matrix2):
+    """
+    The function is used to combine two sparse matrices into one. Two sparse matrices are combined if they have the same size.
+    """
+    if csr_matrix1.shape[1] != csr_matrix2.shape[1]:
+        print('The two matrices must have the same number of columns.')
+        return
+    else:
+        return sp.sparse.vstack([csr_matrix1, csr_matrix2])
+
+def select_columns_from_matrix(csr_matrix, col_indices):
+    """
+    The function is used to select a subset of columns of `csr_matrix` and return
+    the selected subset as a 'csr_matrix' of the same length, but different width.
+    :param csr_matrix: the big matrix, from which we will select a subset of columns.
+    :param col_indices: indices identifying columns to be selected.
+    """
+    csc_matrix = csr_matrix.tocsc()
+    if type(col_indices) != list:
+        col_indices = list(col_indices)
+    subset_matrix = csc_matrix[:, col_indices]
+    return subset_matrix.tocsr()
+
+def find_nonzero_rows(csr_matrix, column_x):
+    col_data = csr_matrix.getcol(column_x).toarray().flatten()
+    return np.nonzero(col_data)[0]
