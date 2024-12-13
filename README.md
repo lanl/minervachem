@@ -36,6 +36,15 @@ You'll also want to run `pip install -r requirements_developer.txt`
 
 We recommend looking through and running the notebooks in the `demos/` directory for a detailed introduction to `minervachem`'s funcitonality.
 
+## Citing Minervachem
+
+Besides this code repository, please see and cite [this preprint](https://doi.org/10.26434/chemrxiv-2024-r81c8):
+
+    Linear Graphlet Models for Accurate and Interpretable Cheminformatics
+    Michael Tynes, Michael G Taylor, Jan Janssen, Daniel J. Burrill, Danny Perez, Ping Yang, Nicholas Lubbers
+    ChemRxiv preprint, 2024
+    https://doi.org/10.26434/chemrxiv-2024-r81c8
+
 ## Highlights
 
 ### Constructing graphlet fingerprints
