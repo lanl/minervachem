@@ -1,35 +1,35 @@
 #!/usr/bin/env python
 import random
 import math
-import logging
 import numpy as np
 from state import *
 
-# MCTS scalar.  Larger scalar will increase exploitation, smaller will increase exploration.
-# SCALAR=1/(2*math.sqrt(2.0))
-
-logname = "mcts.log"
-logging.basicConfig(
-    filename=logname,
-    level=logging.DEBUG,
-    format="%(asctime)s - %(levelname)s - %(message)s",
-    filemode="w",
-)
-logger = logging.getLogger("mcts")
-
-
-def sigmoid(x, alpha=1):
-    return 1 / (1 + np.exp(-alpha * x))
-
-
 def boltzmann(x, alpha=1):
+    """Boltzmann equation
+
+    Args:
+        x (np array): array of raw node scores
+        alpha (int, optional): Boltzmann constant. Defaults to 1.
+
+    Raises:
+        ValueError: If the array is empty, raise an error.
+
+    Returns:
+        np array: probabilities based on Boltzmann distribution
+    """
     if len(x) == 0:
         raise ValueError
     q = np.exp(alpha * np.asarray(x))
     z = np.sum(q)
     return q / z
 
-scalar = 0.35
+def best_alpha(x, t, alpha_0, lambda_decay):
+    alpha_dict = {}
+    for i in range(t):
+        alpha = alpha_0 * np.exp(-lambda_decay * i)
+        probs = boltzmann(x, alpha=alpha)
+        alpha_dict[alpha] = probs
+    return alpha_dict
 
 class Node:
     """Node class"""
@@ -77,7 +77,7 @@ class Node:
         return s
 
 
-def utcbeam(budget, beamsize:int, rootpop:list, alpha:float):
+def utcbeam(budget, beamsize:int, rootpop:list, alpha:float, scalar:float):
     """Beam search version of tree search where instead of returning the single best child, return the top k children.
 
     Args:
@@ -85,6 +85,7 @@ def utcbeam(budget, beamsize:int, rootpop:list, alpha:float):
         beamsize (int): k or number of top candidates to return
         rootpop (list): list of nodes to search
         alpha (float): parameter for controlling elasticity of Boltzmann distribution
+        scalar (float): scalar value to control exploration vs. exploitation trade off
 
     Returns:
         list of Nodes: list of top k Nodes
@@ -93,15 +94,15 @@ def utcbeam(budget, beamsize:int, rootpop:list, alpha:float):
     rootpop = [x for x in rootpop if not x.state.terminal()]
     for node in rootpop:
         for iter in range(int(budget)//len(rootpop)):
-            front = treepolicy(node, alpha=alpha)
+            front = treepolicy(node, alpha=alpha, scalar=scalar)
 
             reward = defaultpolicy(front.state)
 
             backup(node=front, reward=reward)
         allchildren.extend(node.children)
-    return topk(k=beamsize, nodelist=allchildren)
+    return topk(k=beamsize, nodelist=allchildren, scalar=scalar)
 
-def topk(k:int, nodelist=[]):
+def topk(k:int, scalar:float, nodelist=[]):
     """Calculates the score for all the nodes in nodelist, sorts them by score, and then returns the top k nodes
 
     Args:
@@ -111,14 +112,14 @@ def topk(k:int, nodelist=[]):
     Returns:
         list of Nodes: list of top k Nodes
     """
-    scored_nodes = [(n, get_score(n)) for n in nodelist]
+    scored_nodes = [(n, get_score(n, scalar=scalar)) for n in nodelist]
     sorted_nodes = sorted(scored_nodes, key=lambda x: x[1])
     topk = sorted_nodes[-k:]
     topk2 = [x for x, _ in topk]
     return topk2
 
 
-def utcsearch(budget, root, alpha):
+def utcsearch(budget, root, alpha, deterministic:bool, scalar):
     """Function to expand the search tree based on the set tree policy.
 
     Step 1: for every simulation in the alloted budget, instantiate a new node & state.
@@ -135,14 +136,14 @@ def utcsearch(budget, root, alpha):
             Node class: the best child node aka the child node with the highest reward
     """
     for iter in range(int(budget)):
-        front = treepolicy(root, alpha=alpha)
+        front = treepolicy(root, alpha=alpha, scalar=scalar)
         logger.info(f"This is the front node, the resulting node from treepolicy: {front}")
         reward = defaultpolicy(front.state)
         backup(node=front, reward=reward)
-    return bestchild(root, 0, deterministic=True, alpha=alpha)
+    return bestchild(root, scalar=scalar, deterministic=deterministic, alpha=alpha)
 
 
-def treepolicy(node, alpha):
+def treepolicy(node, alpha:float, scalar:float):
     """Function to either exploit a known child node or explore/expand to a new child node.
 
     If the current/root node has no children, then expand the children.
@@ -192,7 +193,7 @@ def expand(node):
     node.add_child(new_state)
     return node.children[-1]
 
-def get_score(node, scalar=scalar):
+def get_score(node, scalar):
     """Calculate score of node based on UCB1 tree policy
 
     Args:
@@ -227,7 +228,7 @@ def bestchild(node, scalar, alpha, deterministic:bool=False):
     bestchildren = []
 
     for c in node.children:
-        score = get_score(c)
+        score = get_score(c, scalar=scalar)
 
         if score == bestscore:
             bestchildren.append(c)
@@ -243,19 +244,15 @@ def bestchild(node, scalar, alpha, deterministic:bool=False):
     # deterministic
     if deterministic:
         bestchild = random.choice(bestchildren) # in case of ties in reward values between bestchildren
-        # logger.info(f"Deterministic {bestchildren}")
     # probabilistic
     else:
         probs = boltzmann(x=allscores, alpha=alpha)
         bestchild = random.choices(allchildren, weights=probs)[0]
-        # logger.info(f"PROBABILITY {allchildren}")
     return bestchild
 
 
 def defaultpolicy(state):
-    """Default policy for rollout/simulation (?)
-
-    While the state is non-terminal, create the next state (aka randomly choose a new move) and calculate the reward
+    """Default policy for rollout/simulation. While the state is non-terminal, create the next state (aka randomly choose a new move) and calculate the reward.
 
     Args:
             state (State class): _description_
@@ -268,7 +265,7 @@ def defaultpolicy(state):
             state = state.next_state()
         except Exception as err:
             raise ValueError(f"Failed on {state}") from err
-    return state.reward()  # , state.calc_mae()
+    return state.reward()
 
 
 def backup(node, reward):
@@ -305,53 +302,4 @@ def top_percent_search(root_node, top_percent=0.05):
     top_count = max(1, int(top_percent * len(all_nodes)))
     top_nodes = [node for _, node in all_nodes[:top_count]]
 
-    return top_nodes
-
-
-# def tree_search(root_node, sa_target=0, logp_target=2.3406, thresh=2, history=[]):
-#     if root_node.state.sa_score is None:
-#         loss = 100
-#     elif root_node.state.logp is None:
-#         loss = 100
-#     else:
-#         loss = (
-#             abs(root_node.state.sa_score - sa_target)
-#             + abs(root_node.state.logp - logp_target)
-#         ) / 2
-#     if loss < thresh:
-#         history.append(root_node)
-#     if len(root_node.children) == 0:
-#         return history
-#     for child in root_node.children:
-#         tmp = tree_search(
-#             child,
-#             sa_target=sa_target,
-#             logp_target=logp_target,
-#             thresh=thresh,
-#             history=history,
-#         )
-#         history = tmp
-#     return history
-
-# def top_percent_search(root_node, top_percent=0.05):
-#     """Search for and save the top n% of non-best/non-fully expanded children
-
-#     Args:
-#         root_node (_type_): root node
-#         top_percent (float, optional): desired percentage cutoff. Defaults to 0.05.
-#     """
-#     def collect_all_nodes(node, all_nodes):
-#         reward = node.reward / node.visits
-#         # Check if node is already in all_nodes
-#         if node not in all_nodes:
-#             all_nodes.append((reward, node))
-#         for child in node.children:
-#             collect_all_nodes(child, all_nodes)
-#         return all_nodes
-
-#     all_nodes = collect_all_nodes(root_node, [])
-#     all_nodes.sort(reverse=True, key=lambda x: x[0])
-#     top_count = max(1, int(top_percent * len(all_nodes)))
-#     top_nodes = [node for _, node in all_nodes[:top_count]]
-
-#     return top_nodes
+    return top_nodes, all_nodes

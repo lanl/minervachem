@@ -110,7 +110,7 @@ class State:
 
 
 class LogP(State):
-    """State that optimizes for a solubility and synthesizability target for MCTS
+    """State that optimizes for a solubility and synthesizability target for MCTS.
 
     Args:
         State (_type_): parent State class
@@ -178,7 +178,7 @@ class LogP(State):
         self.num_moves -= 1
         return next_turn
 
-    def reward(self):
+    def reward(self, weight1=3, weight2=1):
         """Function to check for SMILES string validity and calculate the corresponding reward.
         If the molecule is valid, then logP and SA score are calculated. A reward for each is calculated by getting the distance from the corresponding target value.
         The final reward is taken as an average of the rewards. One reward can be weighted more than the other.
@@ -197,12 +197,15 @@ class LogP(State):
             self.sa_score = sascorer.calculateScore(mol)
             self.mae_sa_score = abs(self.sa_score - self.sa_target)
             self.mae_logp = abs(self.logp - self.goal)
-            reward1 = np.max(
-                (1.0 - (self.mae_logp / self.max_value1)) * 3, 0
-            )  # force no negative reward values
-            reward2 = np.max(
-                1.0 - (self.mae_sa_score / self.max_value2), 0
-            )  # force no negative reward values
+
+            reward1 = (1/((self.mae_logp/self.max_value1)**2+1)) * weight1
+            # reward1 = np.max(
+            #     (1.0 - (self.mae_logp / self.max_value1)) * weight1, 0
+            # )  # force no negative reward values
+            # reward2 = np.max(
+            #     1.0 - (self.mae_sa_score / self.max_value2) * weight2, 0
+            # )  # force no negative reward values
+            reward2 = (1/((self.mae_sa_score/self.max_value2)**2+1)) * weight2
             reward = np.mean([reward1, reward2])
         return reward
 
@@ -232,7 +235,7 @@ class LogP(State):
         return s
 
 class BondEnergy(State):
-    """State that optimizes for an atomization energy and synthesizability target
+    """State that optimizes for an atomization energy and synthesizability target.
 
     Args:
         State (_type_): parent State class
@@ -242,7 +245,7 @@ class BondEnergy(State):
         goal=-2000,
         sa_target=0,
         allchoices=["C", "O", "=", "N", "c", "1", "S", "P", "F", "2", "\n"],
-        max_value1=-1000,
+        max_value1=-2000,
         max_value2=5,
         moves=None,
         turn=8,
@@ -288,7 +291,7 @@ class BondEnergy(State):
         self.num_moves -= 1
         return next_turn
 
-    def reward(self):
+    def reward(self, weight1=3, weight2 = 1):
         """Function to check for SMILES string validity and calculate the corresponding reward.
         If the molecule is valid, then logP and SA score are calculated. A reward for each is calculated by getting the distance from the corresponding target value.
         The final reward is taken as an average of the rewards. One reward can be weighted more than the other.
@@ -308,12 +311,8 @@ class BondEnergy(State):
             self.sa_score = sascorer.calculateScore(mol)
             self.mae_sa_score = abs(self.sa_score - self.sa_target)
 
-            reward1 = np.max(
-                (1.0 - (self.mae / self.max_value1)) * 3, 0
-            )  # force no negative reward values
-            reward2 = np.max(
-                1.0 - (self.mae_sa_score / self.max_value2), 0
-            )  # force no negative reward values
+            reward1 = (1/((self.mae/self.max_value1)**2+1)) * weight1
+            reward2 = (1/((self.mae_sa_score/self.max_value2)**2+1)) * weight2
             reward = np.mean([reward1, reward2])
         return reward
 
@@ -331,7 +330,7 @@ class BondEnergy(State):
             else:
                 sa_score, mae_sa_score = self.sa_score, self.mae_sa_score
             s = (
-                f"E_at: {e_at:.4f}; SA score: {sa_score:.4f};" +
+                f"E_at: {e_at:.4f}; SA score: {sa_score:.4f}; " +
                 f"E_at MAE: {mae:.4f}; SA MAE: {mae_sa_score:.4f}; state: "
                 + self.smiles.replace("\n", ".")
                 + "; "
@@ -340,3 +339,33 @@ class BondEnergy(State):
         else:
             s = "empty state"
         return s
+
+
+class Greedy(State):
+    """TBA: Greedy state that will choose only best child.
+
+    Args:
+        State (_type_): _description_
+    """
+    pass
+
+class NoGreed(State):
+    """TBA: Non-greedy state that will only select children randomly with no input from reward values.
+
+    Args:
+        State (_type_): _description_
+    """
+    def reward(self):
+        new_compound = "".join(self.moves)
+        mol = Chem.MolFromSmiles(new_compound)
+        if mol is None:
+            reward = 0
+        else:
+            reward1 = np.max(
+                (1.0 - (self.mae / self.max_value1)) * 3, 0
+            )  # force no negative reward values
+            reward2 = np.max(
+                1.0 - (self.mae_sa_score / self.max_value2), 0 # add a regularization parameter e.g. * <1
+            )  # force no negative reward values
+            reward = np.mean([reward1, reward2])
+        return reward

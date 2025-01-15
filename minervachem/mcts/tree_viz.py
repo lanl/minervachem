@@ -1,6 +1,5 @@
 import networkx as nx
 import matplotlib.pyplot as plt
-import ast
 import matplotlib.cm as cm
 import numpy as np
 
@@ -48,7 +47,7 @@ def make_tree_nodes(node, size:int):
     return tuples
 
 def make_node_info(node, size:int):
-    """Make a dictionary of all the attributes of a node's children
+    """Make a dictionary of all the attributes of a node's children.
 
     Args:
         node (Node): node
@@ -88,7 +87,7 @@ def make_node_info(node, size:int):
 
 
 def graph_tree(param:str, tuples:list, node_info:dict, smiles:str, cmap):
-    """Use networkx to visualize a search tree for a given node attribute value
+    """Use networkx to visualize a search tree for a given node attribute value.
 
     Args:
         param (str): label for value of statue being plotted
@@ -195,7 +194,7 @@ def hierarchy_pos(G, root, levels=None, width=1., height=4.):
 
 
 def mass_plotting(node_info:dict, params:list, tuples:list, smiles:str):
-    """Mass tree plotting
+    """Mass tree plotting.
 
     Args:
         node_info (dict): dictionary of information on the node's state
