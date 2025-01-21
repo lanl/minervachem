@@ -7,10 +7,6 @@ import sys
 sys.path.append(os.path.join(os.environ["CONDA_PREFIX"], "share", "RDKit", "Contrib"))
 from SA_Score import sascorer
 from rdkit import Chem
-import pickle
-
-with open(os.path.join(os.path.dirname(__file__),'ridge_pipeline.pkl'), 'rb') as f:
-    pipeline = pickle.load(f)
 
 
 class State:
@@ -117,13 +113,13 @@ class LogP(State):
     """
     def __init__(
             self,
-            goal=2.3406,
+            logp_target=2.3406,
             allchoices=["C", "O", "=", "N", "c", "1", "S", "P", "F", "2", "\n"],
-            max_value1=20,
+            logp_max=20,
             moves=None,
             turn=8,
             sa_target=0,
-            max_value2=5,
+            sa_max=5,
     ):
         """_summary_
 
@@ -138,19 +134,20 @@ class LogP(State):
         """
 
         super().__init__(
-            goal=goal,
             allchoices=allchoices,
-            max_value1=max_value1,
             moves=moves,
             turn=turn,
         )
 
+
         self.sa_score = None
         self.mae_sa_score = None
+        self.logp_target = logp_target
         self.logp = None
+        self.logp_max = logp_max
         self.mae_logp = None
         self.sa_target = sa_target
-        self.max_value2 = max_value2
+        self.sa_max = sa_max
 
     def next_state(self):
         """Function to get the next state: For the next move, randomly select a SMILES symbole among the available choices.
@@ -168,11 +165,11 @@ class LogP(State):
         next_turn = cls(
             moves=self.moves + [nextmove],
             turn=self.turn - 1,
-            goal=self.goal,
+            logp_target=self.logp_target,
             sa_target=self.sa_target,
             allchoices=self.allchoices,
-            max_value1=self.max_value1,
-            max_value2=self.max_value2,
+            logp_max=self.logp_max,
+            sa_max=self.sa_max,
         )
         self.choices.remove(nextmove)
         self.num_moves -= 1
@@ -198,14 +195,8 @@ class LogP(State):
             self.mae_sa_score = abs(self.sa_score - self.sa_target)
             self.mae_logp = abs(self.logp - self.goal)
 
-            reward1 = (1/((self.mae_logp/self.max_value1)**2+1)) * weight1
-            # reward1 = np.max(
-            #     (1.0 - (self.mae_logp / self.max_value1)) * weight1, 0
-            # )  # force no negative reward values
-            # reward2 = np.max(
-            #     1.0 - (self.mae_sa_score / self.max_value2) * weight2, 0
-            # )  # force no negative reward values
-            reward2 = (1/((self.mae_sa_score/self.max_value2)**2+1)) * weight2
+            reward1 = (1/((self.mae_logp/self.logp_max)**2+1)) * weight1
+            reward2 = (1/((self.mae_sa_score/self.sa_max)**2+1)) * weight2
             reward = np.mean([reward1, reward2])
         return reward
 
@@ -242,30 +233,33 @@ class BondEnergy(State):
     """
     def __init__(
         self,
-        goal=-2000,
+        model,
+        e_at_target=-2000,
         sa_target=0,
         allchoices=["C", "O", "=", "N", "c", "1", "S", "P", "F", "2", "\n"],
-        max_value1=-2000,
-        max_value2=5,
+        e_at_max=-2000,
+        sa_max=5,
         moves=None,
-        turn=8,
+        turn=8
     ):
         super().__init__(
-            goal=goal,
+            # goal=goal,
             allchoices=allchoices,
-            max_value1=max_value1,
+            # max_value1=max_value1,
             moves=moves,
             turn=turn,
         )
 
-        self.pipeline = pipeline
+        # self.pipeline = pipeline
+        self.model = model
         self.mae = None
+        self.e_at_target = e_at_target
         self.e_at = None
+        self.e_at_max = e_at_max
         self.sa_score = None
         self.mae_sa_score = None
         self.sa_target = sa_target
-        self.max_value2 = max_value2
-
+        self.sa_max = sa_max
     
     def next_state(self):
         """Function to get the next state: For the next move, randomly select a SMILES symbole among the available choices.
@@ -281,11 +275,12 @@ class BondEnergy(State):
         next_turn = BondEnergy(
             moves=self.moves + [nextmove],
             turn=self.turn - 1,
-            goal=self.goal,
+            e_at_target=self.e_at_target,
             sa_target=self.sa_target,
             allchoices=self.allchoices,
-            max_value1=self.max_value1,
-            max_value2=self.max_value2,
+            e_at_max=self.e_at_max,
+            sa_max=self.sa_max,
+            model=self.model
         )
         self.choices.remove(nextmove)
         self.num_moves -= 1
@@ -305,14 +300,14 @@ class BondEnergy(State):
             reward = 0
             sa_score = np.nan
         else:
-            self.e_at = self.pipeline.predict([mol])[0]
+            self.e_at = self.model.predict([mol])[0]
             self.mae = abs(self.e_at - self.goal)
 
             self.sa_score = sascorer.calculateScore(mol)
             self.mae_sa_score = abs(self.sa_score - self.sa_target)
 
-            reward1 = (1/((self.mae/self.max_value1)**2+1)) * weight1
-            reward2 = (1/((self.mae_sa_score/self.max_value2)**2+1)) * weight2
+            reward1 = (1/((self.mae/self.e_at_max)**2+1)) * weight1
+            reward2 = (1/((self.mae_sa_score/self.sa_max)**2+1)) * weight2
             reward = np.mean([reward1, reward2])
         return reward
 

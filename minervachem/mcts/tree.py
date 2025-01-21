@@ -2,7 +2,7 @@
 import random
 import math
 import numpy as np
-from state import *
+from minervachem.mcts.state import State, LogP, BondEnergy
 
 def boltzmann(x, alpha=1):
     """Boltzmann equation
@@ -137,7 +137,6 @@ def utcsearch(budget, root, alpha, deterministic:bool, scalar):
     """
     for iter in range(int(budget)):
         front = treepolicy(root, alpha=alpha, scalar=scalar)
-        logger.info(f"This is the front node, the resulting node from treepolicy: {front}")
         reward = defaultpolicy(front.state)
         backup(node=front, reward=reward)
     return bestchild(root, scalar=scalar, deterministic=deterministic, alpha=alpha)
