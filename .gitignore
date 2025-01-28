@@ -6,4 +6,5 @@ build/*
 **/*.egg-info
 **/*.idea/*
 **/.ipynb_checkpoints/*
-minervachem/mcts/ridge_pipeline.pkl
+**/*.pkl
+.gitattributes
