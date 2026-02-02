@@ -2,6 +2,7 @@ import multiprocessing
 import numpy as np
 import pandas as pd
 from collections import defaultdict
+import time
 
 def rank(a):
     return np.argsort(np.argsort(a))
@@ -107,5 +108,31 @@ def scan_magnitudes(lower, upper, base=10):
     scan.append(np.array([1.*base**upper]))
     scan = np.hstack(scan)
     return scan
-    
+
+def find_inds(bitid, biinfo):
+    """
+    Looks up the atom index/indices associated with a given substructure fingerprint (hash).
+    Returns only the *first* match encountered during iteration.
+
+    Iterates over an RDKit-style bitInfo mapping and returns the first stored
+    index/indices for the entry whose key's second element matches `bitid`.
+
+    Parameters
+    ----------
+    bitid : int
+        Fingerprint bit identifier to search for.
+    biinfo : dict
+        Bit information mapping (bit_info from GraphletFingerprinter output), where keys are tuples
+        whose second element is a bit id, and values are atom index/indices for that bit.
+
+    Returns
+    -------
+    list or None
+        List of atom index/indices if found, else None.
+
+    """
+    for k,v in biinfo.items():
+        if k[1]==bitid:
+            return v[0]
+    return None
 
