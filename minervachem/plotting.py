@@ -1,7 +1,11 @@
 from functools import partial
+from io import BytesIO
 import math
 
+import cairosvg
 from rdkit import Chem
+from rdkit.Chem import rdDepictor
+from rdkit.Chem.Draw import rdMolDraw2D
 import numpy as np
 import matplotlib
 import matplotlib.pyplot as plt
@@ -204,7 +208,94 @@ def draw_ss(mol, atom_ix, draw_atom_ix=False, ix_note=True):
     im = Chem.Draw.MolToImage(rwmol, options=dos)
     return im
 
-# YP edited. 06/24/24 - a flag for plotting only found substructures
+def draw_substructure(mol, atom_ix, draw_atom_ix=False, ix_note=True,
+                      size=(300, 250), flatten_bonds=True, use_coordgen=True):
+    
+    """
+    Render a molecular substructure defined by a set of atom indices as an SVG.
+
+    Parameters
+    ----------
+    mol : rdkit.Chem.Mol
+        Input molecule to draw.
+    atom_ix : Iterable[int]
+        Atom indices (with respect to `mol`) to keep in the rendered substructure.
+        Duplicates are ignored.
+    draw_atom_ix : bool, default=False
+        If True, annotate atoms with their indices in the substructure (after
+        deletion/renumbering).
+    ix_note : bool, default=True
+        If True and `draw_atom_ix` is True, reduce annotation font scale to make
+        indices less visually dominant.
+    size : tuple[int, int], default=(300, 250)
+        Output image size as (width, height) in pixels.
+    flatten_bonds : bool, default=True
+        If True, remove stereochemistry from the fragment prior to drawing.
+    use_coordgen : bool, default=True
+        If True, prefer CoordGen for 2D coordinate generation (via
+        `rdDepictor.SetPreferCoordGen`).
+
+    Returns
+    -------
+    str
+        SVG text of the rendered substructure.
+    """
+
+    keep = sorted(set(atom_ix))
+    if not keep:
+        raise ValueError("No atoms selected for the substructure.")
+
+    rwm = Chem.RWMol(mol)
+    for a in sorted((i for i in range(rwm.GetNumAtoms()) if i not in keep), reverse=True):
+        rwm.RemoveAtom(a)
+    sub = rwm.GetMol()
+    if sub.GetNumAtoms() == 0:
+        raise ValueError("Fragment is empty after deletion.")
+    
+    if flatten_bonds:
+        Chem.RemoveStereochemistry(sub)
+    if sub.GetNumAtoms() > 1:
+        sub.RemoveAllConformers()
+        rdDepictor.SetPreferCoordGen(bool(use_coordgen))
+        rdDepictor.Compute2DCoords(sub)
+
+    d2d = rdMolDraw2D.MolDraw2DSVG(*size)
+    opts = d2d.drawOptions()
+    if draw_atom_ix:
+        opts.addAtomIndices = True
+        if ix_note:
+            opts.annotationFontScale = 0.7
+            
+    rdMolDraw2D.PrepareAndDrawMolecule(d2d, sub)
+    d2d.FinishDrawing()
+    return d2d.GetDrawingText()
+
+def pil_from_svg(svg_text: str, *, scale=1.0, output_width=None, output_height=None):
+    """
+    Convert an SVG string into a Pillow (PIL) RGBA image.
+
+    Parameters
+    ----------
+    svg_text : str
+        SVG markup as a Unicode string.
+    scale : float, default=1.0
+        Uniform scaling factor passed to CairoSVG during rasterization.
+    output_width : int | None, default=None
+        Target output width in pixels. If provided, overrides the SVG's intrinsic width.
+    output_height : int | None, default=None
+        Target output height in pixels. If provided, overrides the SVG's intrinsic height.
+
+    Returns
+    -------
+    PIL.Image.Image
+        The rasterized image in RGBA mode.
+    """
+    png_bytes = cairosvg.svg2png(bytestring=svg_text.encode("utf-8"),
+                                 scale=scale,
+                                 output_width=output_width,
+                                 output_height=output_height)
+    return Image.open(BytesIO(png_bytes)).convert("RGBA")
+
 def plot_fingerprint(mol,
                      fingerprinter,
                      ncol=3,
